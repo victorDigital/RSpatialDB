@@ -33,5 +33,5 @@ tryCatch(
 
 # TODO: DO DB STUFF HERE
 
-# Close the connection to the database on exit
+# Close the connection on exit
 on.exit(dbDisconnect(connec), add = TRUE)
