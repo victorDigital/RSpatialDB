@@ -1,6 +1,11 @@
 library(dotenv)
 library(RPostgreSQL)
 
+
+data_folder <- "exampleData"
+
+
+
 load_dot_env(file = ".env")
 
 dsn_database <- Sys.getenv("DB_NAME")
@@ -13,7 +18,6 @@ dsn_pwd <- Sys.getenv("DB_PASS")
 tryCatch(
   {
     drv <- dbDriver("PostgreSQL")
-    print("Connecting to Database…")
     connec <- dbConnect(
       drv,
       dbname = dsn_database,
@@ -27,11 +31,73 @@ tryCatch(
   error = function(cond) {
     print("Unable to connect to Database.")
     print(cond)
-    return(NULL)
+    q("no")
   }
 )
 
-# TODO: DO DB STUFF HERE
+# DEV: drop all tables to start fresh
+#for (table in dbListTables(connec)) {
+#  dbSendQuery(connec, paste0("DROP TABLE ", table))
+#}
+
+tables <- dbListTables(connec)
+
+if (!"data" %in% tables) {
+  print("Creating table data because it does not exist.")
+  dbSendQuery(
+    connec,
+    "CREATE TABLE data (
+      sat VARCHAR(10),
+      time TEXT,
+      decyear TEXT,
+      lat TEXT,
+      lon TEXT,
+      himth TEXT,
+      himth05 TEXT,
+      geoid TEXT,
+      distnode TEXT,
+      width TEXT,
+      reachid TEXT,
+      nodeid TEXT,
+      wse TEXT,
+      ocval TEXT,
+      height TEXT,
+      heighte TEXT,
+      waterid TEXT,
+      hocean TEXT,
+      hocog TEXT,
+      hice1 TEXT,
+      hice2 TEXT,
+      PRIMARY KEY (sat, time, lat, lon)
+    );"
+    # text is used for all columns because the data is not consistent
+  )
+}
+
+
+folders <- list.dirs(path = paste0("./", data_folder), full.names = FALSE, recursive = FALSE)
+
+for (folder in folders) {
+  files <- list.files(path = paste0("./", data_folder, "/", folder), full.names = FALSE, recursive = FALSE, pattern = ".dat")
+  for (file in files) {
+    if (grepl(".Identifier", file)) {
+      next
+    }
+    print(file)
+    data <- read.csv(sep = " ", paste0("./", data_folder, "/", folder, "/", file))
+    data$sat <- folder
+
+    names(data) <- tolower(names(data))
+
+    dbWriteTable(connec, "data", data, append = TRUE, row.names = FALSE)
+  }
+}
+
+#dump the entire db to a csv file
+#query <- "SELECT * FROM data"
+#data <- dbGetQuery(connec, query)
+#write.csv(data, "data.csv", row.names = FALSE)
+
 
 
 # Close the connection on exit
